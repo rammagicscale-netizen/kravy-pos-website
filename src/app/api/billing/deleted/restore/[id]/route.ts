@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getAuth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 
-export async function POST(req: Request, { params }: any) {
+export async function POST(req: NextRequest, { params }: any) {
   try {
     const { userId } = getAuth(req);
 
@@ -12,6 +12,7 @@ export async function POST(req: Request, { params }: any) {
 
     const restoreId = params.id;
 
+    // 🔍 1. Find deleted entry
     const entry = await prisma.deleteHistory.findUnique({
       where: { id: restoreId },
     });
@@ -22,8 +23,8 @@ export async function POST(req: Request, { params }: any) {
 
     const snap: any = entry.snapshot;
 
-    // 1️⃣ Restore the main bill
-    await prisma.bill.create({
+    // 🧾 2. Restore MAIN BILL
+    const restoredBill = await prisma.bill.create({
       data: {
         id: snap.id,
         userId: snap.userId,
@@ -36,54 +37,35 @@ export async function POST(req: Request, { params }: any) {
         paymentStatus: snap.paymentStatus,
         paymentMode: snap.paymentMode,
         notes: snap.notes,
-        dueDate: snap.dueDate ? new Date(snap.dueDate) : null,
 
+        dueDate: snap.dueDate ? new Date(snap.dueDate) : null,
         holdBy: snap.holdBy,
         holdAt: snap.holdAt ? new Date(snap.holdAt) : null,
         resumedAt: snap.resumedAt ? new Date(snap.resumedAt) : null,
-        isHeld: snap.isHeld,
 
-        companyName: snap.companyName,
-        companyAddress: snap.companyAddress,
-        companyPhone: snap.companyPhone,
-        contactPerson: snap.contactPerson,
-        logoUrl: snap.logoUrl,
-        signatureUrl: snap.signatureUrl,
-        websiteUrl: snap.websiteUrl,
+        createdAt: snap.createdAt ? new Date(snap.createdAt) : new Date(),
       },
     });
 
-    // 2️⃣ Restore bill products
-    if (snap.products?.length) {
-      await prisma.billProduct.createMany({
-        data: snap.products.map((p: any) => ({
-          id: p.id,
-          billId: p.billId,
-          productId: p.productId,
-          productName: p.productName,
-          quantity: p.quantity,
-          price: p.price,
-          discount: p.discount,
-          gst: p.gst,
-          total: p.total,
-        })),
-      });
+    // 🛒 3. Restore BILL ITEMS
+    if (snap.items && snap.items.length > 0) {
+      for (const item of snap.items) {
+        await prisma.billItem.create({
+          data: {
+            id: item.id,
+            billId: snap.id,
+            productId: item.productId,
+            name: item.name,
+            price: item.price,
+            qty: item.qty,
+            total: item.total,
+            createdAt: item.createdAt ? new Date(item.createdAt) : new Date(),
+          },
+        });
+      }
     }
 
-    // 3️⃣ Restore payments
-    if (snap.payments?.length) {
-      await prisma.payment.createMany({
-        data: snap.payments.map((p: any) => ({
-          id: p.id,
-          billId: p.billId,
-          amount: p.amount,
-          mode: p.mode,
-          paidAt: new Date(p.paidAt),
-        })),
-      });
-    }
-
-    // 4️⃣ Delete from DeleteHistory (cleanup)
+    // 🗑 4. Remove the entry from deleteHistory
     await prisma.deleteHistory.delete({
       where: { id: restoreId },
     });
@@ -91,13 +73,10 @@ export async function POST(req: Request, { params }: any) {
     return NextResponse.json({
       success: true,
       message: "Bill restored successfully",
+      restoredBill,
     });
-
-  } catch (err) {
-    console.error("RESTORE ERROR →", err);
-    return NextResponse.json(
-      { error: "Server error", details: String(err) },
-      { status: 500 }
-    );
+  } catch (error: any) {
+    console.error("Restore Error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
