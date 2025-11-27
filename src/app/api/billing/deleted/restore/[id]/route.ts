@@ -27,80 +27,65 @@ export async function POST(
 
     const snap: any = entry.snapshot;
 
-    // 2️⃣ Restore BILL (removed resumedBy & resumedAt)
+    // 2️⃣ Restore the bill
     const restoredBill = await prisma.bill.create({
       data: {
         id: snap.id,
         userId: snap.userId,
         clerkUserId: snap.clerkUserId ?? null,
         customerId: snap.customerId ?? null,
-
         total: snap.total ?? 0,
         discount: snap.discount ?? null,
         gst: snap.gst ?? null,
         grandTotal: snap.grandTotal ?? null,
-        paymentStatus: snap.paymentStatus ?? "PENDING",
+        paymentStatus: snap.paymentStatus ?? null,
         paymentMode: snap.paymentMode ?? null,
         notes: snap.notes ?? null,
+        dueDate: snap.dueDate ? new Date(snap.dueDate) : null,
 
         holdBy: snap.holdBy ?? null,
         holdAt: snap.holdAt ? new Date(snap.holdAt) : null,
 
         createdAt: snap.createdAt ? new Date(snap.createdAt) : new Date(),
-        updatedAt: new Date(),
       },
     });
 
-    // 3️⃣ Restore BILL PRODUCTS
+    // 3️⃣ Restore Products
     if (snap.products && snap.products.length > 0) {
-      const productsData = snap.products.map((item: any) => ({
-        id: item.id,
+      const productsData = snap.products.map((p: any) => ({
+        id: p.id,
         billId: snap.id,
-        itemId: item.itemId,
-        quantity: item.quantity,
-        price: item.price,
-        gst: item.gst ?? null,
-        discount: item.discount ?? null,
-        createdAt: item.createdAt ? new Date(item.createdAt) : new Date(),
+        itemId: p.itemId,
+        quantity: p.quantity,
+        price: p.price,
+        total: p.total,
       }));
 
-      // MongoDB: createMany CANNOT use skipDuplicates
-      for (const p of productsData) {
-        await prisma.billProduct.create({ data: p });
+      for (const prod of productsData) {
+        await prisma.billProduct.create({
+          data: prod,
+        });
       }
     }
 
-    // 4️⃣ Restore PAYMENTS
+    // 4️⃣ Restore Payments
     if (snap.payments && snap.payments.length > 0) {
-      for (const pay of snap.payments) {
+      const paymentsData = snap.payments.map((pay: any) => ({
+        id: pay.id,
+        billId: snap.id,
+        amount: pay.amount,
+        method: pay.method,
+        createdAt: pay.createdAt ? new Date(pay.createdAt) : new Date(),
+      }));
+
+      for (const pay of paymentsData) {
         await prisma.payment.create({
-          data: {
-            id: pay.id,
-            billId: snap.id,
-            amount: pay.amount,
-            mode: pay.mode,
-            createdAt: pay.createdAt ? new Date(pay.createdAt) : new Date(),
-          },
+          data: pay,
         });
       }
     }
 
-    // 5️⃣ Restore HISTORY
-    if (snap.history && snap.history.length > 0) {
-      for (const h of snap.history) {
-        await prisma.billHistory.create({
-          data: {
-            id: h.id,
-            billId: snap.id,
-            action: h.action,
-            message: h.message,
-            createdAt: h.createdAt ? new Date(h.createdAt) : new Date(),
-          },
-        });
-      }
-    }
-
-    // 6️⃣ Delete restore entry
+    // 5️⃣ Delete deleteHistory entry
     await prisma.deleteHistory.delete({
       where: { id: restoreId },
     });
@@ -111,7 +96,7 @@ export async function POST(
       data: restoredBill,
     });
   } catch (error) {
-    console.error("RESTORE ERROR:", error);
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    console.error("Restore error:", error);
+    return NextResponse.json({ error }, { status: 500 });
   }
 }
