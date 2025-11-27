@@ -13,10 +13,10 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // params may be a Promise in Next.js App Router
+    // Params may be Promise in latest Next.js App Router
     const { id: restoreId } = await params;
 
-    // 1) find deleted snapshot
+    // 1️⃣ Fetch deleted snapshot
     const entry = await prisma.deleteHistory.findUnique({
       where: { id: restoreId },
     });
@@ -27,10 +27,9 @@ export async function POST(
 
     const snap: any = entry.snapshot;
 
-    // 2) Restore Bill
-    const restoredBill = await prisma.bill.create({
+    // 2️⃣ Restore BILL
+    await prisma.bill.create({
       data: {
-        // if snap.id exists (you stored id previously), Prisma + Mongo will accept it
         id: snap.id,
         userId: snap.userId,
         clerkUserId: snap.clerkUserId ?? null,
@@ -39,73 +38,71 @@ export async function POST(
         discount: snap.discount ?? null,
         gst: snap.gst ?? null,
         grandTotal: snap.grandTotal ?? null,
-        paymentStatus: snap.paymentStatus ?? null,
+        paymentStatus: snap.paymentStatus ?? "pending",
         paymentMode: snap.paymentMode ?? null,
         notes: snap.notes ?? null,
+
         dueDate: snap.dueDate ? new Date(snap.dueDate) : null,
         holdBy: snap.holdBy ?? null,
         holdAt: snap.holdAt ? new Date(snap.holdAt) : null,
+        resumedBy: snap.resumedBy ?? null,
         resumedAt: snap.resumedAt ? new Date(snap.resumedAt) : null,
-        isHeld: snap.isHeld ?? false,
-        companyName: snap.companyName ?? null,
-        companyAddress: snap.companyAddress ?? null,
-        companyPhone: snap.companyPhone ?? null,
-        contactPerson: snap.contactPerson ?? null,
-        logoUrl: snap.logoUrl ?? null,
-        signatureUrl: snap.signatureUrl ?? null,
-        websiteUrl: snap.websiteUrl ?? null,
-        // createdAt: snap.createdAt ? new Date(snap.createdAt) : undefined, // optional: set if you want to restore original timestamp
+
+        createdAt: snap.createdAt ? new Date(snap.createdAt) : new Date(),
       },
     });
 
-    // 3) Restore BillProduct entries (if any)
-    if (Array.isArray(snap.products) && snap.products.length > 0) {
-      const productsData = snap.products.map((p: any) => ({
-        id: p.id,
-        billId: snap.id,
-        productId: p.productId,
-        productName: p.productName ?? p.name ?? null,
-        quantity: p.quantity ?? 0,
-        price: p.price ?? 0,
-        discount: p.discount ?? null,
-        gst: p.gst ?? null,
-        total: p.total ?? null,
-      }));
-
-      // createMany is faster; if your Mongo + Prisma supports it use this:
-      await prisma.billProduct.createMany({
-        data: productsData,
-        skipDuplicates: true,
-      });
-
-      // If createMany causes issues on your platform, use a loop:
-      // for (const p of productsData) {
-      //   await prisma.billProduct.create({ data: p });
-      // }
+    // 3️⃣ Restore PRODUCTS (loop – Mongo safe)
+    if (snap.products && snap.products.length > 0) {
+      for (const p of snap.products) {
+        await prisma.billProduct.create({
+          data: {
+            id: p.id,
+            billId: snap.id,
+            itemId: p.itemId,
+            name: p.name,
+            quantity: p.quantity,
+            price: p.price,
+            gst: p.gst ?? 0,
+            discount: p.discount ?? 0,
+            total: p.total ?? 0,
+          },
+        });
+      }
     }
 
-    // 4) Restore payments (if any)
-    if (Array.isArray(snap.payments) && snap.payments.length > 0) {
-      const paymentsData = snap.payments.map((p: any) => ({
-        id: p.id,
-        billId: snap.id,
-        amount: p.amount ?? 0,
-        mode: p.mode ?? null,
-        paidAt: p.paidAt ? new Date(p.paidAt) : new Date(),
-      }));
-
-      await prisma.payment.createMany({
-        data: paymentsData,
-        skipDuplicates: true,
-      });
-
-      // or fallback to single creates if needed:
-      // for (const pay of paymentsData) {
-      //   await prisma.payment.create({ data: pay });
-      // }
+    // 4️⃣ Restore PAYMENTS
+    if (snap.payments && snap.payments.length > 0) {
+      for (const pay of snap.payments) {
+        await prisma.payment.create({
+          data: {
+            id: pay.id,
+            billId: snap.id,
+            amount: pay.amount,
+            mode: pay.mode ?? "cash",
+            status: pay.status ?? "completed",
+            createdAt: pay.createdAt ? new Date(pay.createdAt) : new Date(),
+          },
+        });
+      }
     }
 
-    // 5) Cleanup: delete the DeleteHistory entry
+    // 5️⃣ Restore HISTORY
+    if (snap.history && snap.history.length > 0) {
+      for (const h of snap.history) {
+        await prisma.billHistory.create({
+          data: {
+            id: h.id,
+            billId: snap.id,
+            action: h.action,
+            userId: h.userId ?? null,
+            timestamp: h.timestamp ? new Date(h.timestamp) : new Date(),
+          },
+        });
+      }
+    }
+
+    // 6️⃣ Delete from deleteHistory
     await prisma.deleteHistory.delete({
       where: { id: restoreId },
     });
@@ -113,13 +110,9 @@ export async function POST(
     return NextResponse.json({
       success: true,
       message: "Bill restored successfully",
-      restoredBill,
     });
-  } catch (err: any) {
-    console.error("RESTORE ERROR →", err);
-    return NextResponse.json(
-      { error: "Server error", details: String(err) },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error("RESTORE ERROR:", error);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
