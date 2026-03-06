@@ -2,8 +2,8 @@
 import type { ReactNode } from "react";
 import "./globals.css";
 import Providers from "@/components/Providers";
-import { SidebarProvider } from "@/components/SidebarContext";
 import { Inter } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -22,14 +22,14 @@ export default function RootLayout({
   children: ReactNode;
 }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}>
-        <Providers>
-          <SidebarProvider>
+    <ClerkProvider>
+      <html lang="en" className={inter.variable}>
+        <body style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}>
+          <Providers>
             {children}
-          </SidebarProvider>
-        </Providers>
-      </body>
-    </html>
+          </Providers>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
