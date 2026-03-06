@@ -15,7 +15,6 @@ export async function GET(req: NextRequest) {
 
     const bills = await prisma.billManager.findMany({
       where: {
-        clerkUserId,
         isDeleted: false,
       },
       orderBy: { createdAt: "desc" },
@@ -47,30 +46,41 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     // ❌ DO NOT destructure billNumber
-   const {
-  items,
-  subtotal,
-  total,
-  paymentMode,
-  paymentStatus,
-  isHeld,
-  upiTxnRef,
-  customerName,
-  customerPhone,
-} = body;
+    const {
+      items,
+      subtotal,
+      total,
+      paymentMode,
+      paymentStatus,
+      isHeld,
+      upiTxnRef,
+      customerName,
+      customerPhone,
+    } = body;
 
-// ✅ HARD DEFAULTS (CRITICAL)
-const finalPaymentMode: "Cash" | "UPI" | "Card" =
-  paymentMode === "UPI" || paymentMode === "Card"
-    ? paymentMode
-    : "Cash";
+    // ✅ HARD DEFAULTS (CRITICAL)
+    const finalPaymentMode: "Cash" | "UPI" | "Card" =
+      paymentMode === "UPI" || paymentMode === "Card"
+        ? paymentMode
+        : "Cash";
 
     // ✅ ALWAYS CALCULATE TAX ON SERVER
-    const GST_PERCENT = 5;
+    // Fetch business profile for tax settings
+    let profile = await prisma.businessProfile.findFirst({
+      where: { userId: clerkUserId },
+    });
+    if (!profile) {
+      profile = await prisma.businessProfile.findFirst();
+    }
 
-    const calculatedTax = Number(
-      ((subtotal * GST_PERCENT) / 100).toFixed(2)
-    );
+    const isTaxEnabled = profile?.taxEnabled ?? true;
+    const taxRate = profile?.taxRate ?? 5.0;
+
+    const calculatedTax = isTaxEnabled
+      ? Number(((subtotal * taxRate) / 100).toFixed(2))
+      : 0;
+
+    const totalOrder = Number((subtotal + calculatedTax).toFixed(2));
 
 
     // Basic validation
@@ -94,34 +104,34 @@ const finalPaymentMode: "Cash" | "UPI" | "Card" =
     )}`;
 
     // ✅ DERIVE FINAL PAYMENT STATUS (SOURCE OF TRUTH)
-       let finalPaymentStatus: string;
-if (isHeld === true) {
-  finalPaymentStatus = "HELD";
-} else if (finalPaymentMode === "Cash" || finalPaymentMode === "Card") {
-  finalPaymentStatus = "Paid";
-} else {
-  finalPaymentStatus =
-    paymentStatus === "Paid" ? "Paid" : "Pending";
-}
+    let finalPaymentStatus: string;
+    if (isHeld === true) {
+      finalPaymentStatus = "HELD";
+    } else if (finalPaymentMode === "Cash" || finalPaymentMode === "Card") {
+      finalPaymentStatus = "Paid";
+    } else {
+      finalPaymentStatus =
+        paymentStatus === "Paid" ? "Paid" : "Pending";
+    }
 
 
 
     const bill = await prisma.billManager.create({
-  data: {
-    clerkUserId,
-    billNumber,
-    items,
-    subtotal,
-    tax: calculatedTax,
-    total,
-    paymentMode: finalPaymentMode,     // ✅ GUARANTEED
-    paymentStatus: finalPaymentStatus, // ✅ SOURCE OF TRUTH
-    isHeld: isHeld === true, // ✅ THIS LINE WAS MISSING
-    upiTxnRef: upiTxnRef || null,
-    customerName: customerName || null,
-    customerPhone: customerPhone || null,
-  },
-});
+      data: {
+        clerkUserId,
+        billNumber,
+        items,
+        subtotal,
+        tax: calculatedTax,
+        total,
+        paymentMode: finalPaymentMode,     // ✅ GUARANTEED
+        paymentStatus: finalPaymentStatus, // ✅ SOURCE OF TRUTH
+        isHeld: isHeld === true, // ✅ THIS LINE WAS MISSING
+        upiTxnRef: upiTxnRef || null,
+        customerName: customerName || null,
+        customerPhone: customerPhone || null,
+      },
+    });
 
     return NextResponse.json({ bill });
   } catch (err) {

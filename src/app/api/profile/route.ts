@@ -19,9 +19,15 @@ export async function GET(request: Request) {
       );
     }
 
-    const profile = await prisma.businessProfile.findFirst({
+    let profile = await prisma.businessProfile.findFirst({
       where: { userId },
     });
+
+    // 🔹 FALLBACK: If current user doesn't have a profile, fetch the first one 
+    // to allow staff/clerks to access the same store settings.
+    if (!profile) {
+      profile = await prisma.businessProfile.findFirst();
+    }
 
     return NextResponse.json(profile, { status: 200 });
   } catch (error) {
