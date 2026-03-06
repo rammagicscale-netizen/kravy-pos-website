@@ -1,33 +1,11 @@
-// import { clerkMiddleware } from "@clerk/nextjs/server";
-
-// export default clerkMiddleware();
-
-// export const config = {
-//   matcher: [
-//     "/((?!_next|.*\\..*).*)",
-//     "/(api|trpc)(.*)"
-//   ],
-// };
-
-// import { clerkMiddleware } from "@clerk/nextjs/server";
-
-// export default clerkMiddleware();
-
-// export const config = {
-//   matcher: [
-//     "/((?!_next|static|favicon.ico).*)",
-//     "/api/(.*)"
-//   ],
-// };
-
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
 const isPublicRoute = createRouteMatcher([
-  "/menu/(.*)",
-  "/api/public/(.*)",
+  "/",
   "/sign-in(.*)",
   "/sign-up(.*)",
-  "/"
+  "/menu/(.*)",
+  "/api/public/(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
