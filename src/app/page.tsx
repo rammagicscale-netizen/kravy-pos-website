@@ -1,6 +1,4 @@
-
-
-import { auth } from "@clerk/nextjs/server";
+import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import {
   SignedOut,
@@ -10,9 +8,9 @@ import {
 import Image from "next/image";
 
 export default async function HomePage() {
-  const { userId } = await auth();
+  const user = await currentUser();
 
-  if (userId) {
+  if (user) {
     redirect("/dashboard");
   }
 
@@ -55,7 +53,7 @@ export default async function HomePage() {
 
                 <SignUpButton
                   mode="modal"
-                 forceRedirectUrl="/dashboard"
+                  forceRedirectUrl="/dashboard"
                 >
                   <button className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 transition-all duration-300 text-white font-medium px-8 py-3 rounded-xl shadow-md">
                     Get Started Free
