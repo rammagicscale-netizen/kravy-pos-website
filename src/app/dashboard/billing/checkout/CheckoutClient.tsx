@@ -213,7 +213,12 @@ export default function CheckoutClient() {
     logoUrl?: string;
     taxEnabled?: boolean;
     taxRate?: number;
-  } | null>(null);
+  }>({
+    businessName: "KRAVY POS STORE",
+    businessTagLine: "Quick Billing Solution",
+    taxEnabled: true,
+    taxRate: 5.0
+  });
 
 
   useEffect(() => {
@@ -641,6 +646,10 @@ export default function CheckoutClient() {
               {/* HOLD */}
               <button
                 onClick={async () => {
+                  if (items.length === 0) {
+                    alert("Please add at least one item to put on hold.");
+                    return;
+                  }
                   const bill = await saveBill(true); // ✅ HOLD MODE
                   if (!bill) return;
 
@@ -649,9 +658,7 @@ export default function CheckoutClient() {
                   setCustomerName("");
                   setCustomerPhone("");
                 }}
-                disabled={items.length === 0}
-                className="flex-1 border-2 border-amber-500/50 text-amber-500 font-bold py-3 rounded-xl
-                        disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-500/10 transition-colors text-sm"
+                className={`flex-1 border-2 border-amber-500/50 text-amber-500 font-bold py-3 rounded-xl transition-all text-sm ${items.length === 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-amber-500/10'}`}
               >
                 ⏸ Hold
               </button>
@@ -660,6 +667,10 @@ export default function CheckoutClient() {
               <button
                 type="button"
                 onClick={async () => {
+                  if (items.length === 0) {
+                    alert("Cart is empty. Please add items before saving.");
+                    return;
+                  }
                   const bill = await saveBill();
                   if (!bill) return;
 
@@ -675,9 +686,7 @@ export default function CheckoutClient() {
                   setBillNumber(`SV-${Date.now()}`);
                   setBillDate(new Date().toLocaleString());
                 }}
-                disabled={items.length === 0}
-                className="flex-1 bg-[var(--kravy-surface-hover)] border border-[var(--kravy-border)] text-[var(--kravy-text-primary)] font-bold py-3 rounded-xl
-                        disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--kravy-bg-2)] transition-colors text-sm"
+                className={`flex-1 bg-[var(--kravy-surface-hover)] border border-[var(--kravy-border)] text-[var(--kravy-text-primary)] font-bold py-3 rounded-xl transition-all text-sm ${items.length === 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[var(--kravy-bg-2)]'}`}
               >
                 💾 Save
               </button>
@@ -685,8 +694,12 @@ export default function CheckoutClient() {
               {/* SAVE & PRINT */}
               <button
                 onClick={async () => {
-                  if (!business) {
-                    alert("Business profile not loaded yet");
+                  if (items.length === 0) {
+                    alert("Please add items to print a receipt.");
+                    return;
+                  }
+                  if (paymentMode === "UPI" && paymentStatus !== "Paid") {
+                    alert("Please confirm the UPI payment has been received before printing.");
                     return;
                   }
 
@@ -694,13 +707,7 @@ export default function CheckoutClient() {
                   if (!bill) return;
                   printReceipt();
                 }}
-                disabled={
-                  items.length === 0 ||
-                  !business ||
-                  (paymentMode === "UPI" && paymentStatus !== "Paid")
-                }
-                className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white font-black py-3 rounded-xl
-                        disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20 active:scale-95 transition-all text-sm"
+                className={`flex-1 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white font-black py-3 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all text-sm ${items.length === 0 || (paymentMode === "UPI" && paymentStatus !== "Paid") ? 'opacity-60 cursor-not-allowed' : ''}`}
               >
                 🖨️ Print
               </button>
