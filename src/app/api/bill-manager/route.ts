@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
 
     const bills = await prisma.billManager.findMany({
       where: {
+        clerkUserId,
         isDeleted: false,
       },
       orderBy: { createdAt: "desc" },
@@ -66,12 +67,9 @@ export async function POST(req: NextRequest) {
 
     // ✅ ALWAYS CALCULATE TAX ON SERVER
     // Fetch business profile for tax settings
-    let profile = await prisma.businessProfile.findFirst({
+    const profile = await prisma.businessProfile.findFirst({
       where: { userId: clerkUserId },
     });
-    if (!profile) {
-      profile = await prisma.businessProfile.findFirst();
-    }
 
     const isTaxEnabled = profile?.taxEnabled ?? true;
     const taxRate = profile?.taxRate ?? 5.0;
