@@ -1,33 +1,26 @@
 // eslint.config.js
 import { FlatCompat } from '@eslint/eslintrc';
+import { fileURLToPath } from 'url';
+import path from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const compat = new FlatCompat({
-  baseDirectory: process.cwd(),
+  baseDirectory: __dirname,
 });
 
 export default [
   ...compat.extends('next/core-web-vitals'),
-
+  {
+    ignores: ['src/generated/prisma/**', 'node_modules/**', '.next/**'],
+  },
   {
     files: ['**/*.{ts,tsx}'],
-    ignores: ['src/generated/prisma/**'], // ignore Prisma generated files
-    languageOptions: {
-      parser: '@typescript-eslint/parser',
-      parserOptions: {
-        ecmaVersion: 2024,
-        sourceType: 'module',
-        ecmaFeatures: {
-          jsx: true,
-        },
-        project: './tsconfig.json', // needed if using type-aware linting
-      },
-    },
-    plugins: ['@typescript-eslint'],
     rules: {
       '@typescript-eslint/no-unused-vars': 'warn',
-      '@typescript-eslint/no-unused-expressions': 'off',
-      '@typescript-eslint/no-this-alias': 'off',
-      '@typescript-eslint/no-require-imports': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      'react/no-unescaped-entities': 'off',
     },
   },
 ];
