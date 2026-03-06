@@ -161,6 +161,7 @@ const navGroups = [
       { icon: <Shield size={18} />, label: "Security & Backup", href: "/dashboard/backup" },
       { icon: <Archive size={18} />, label: "Archive & Trash", href: "/dashboard/billing/deleted" },
       { icon: <HelpCircle size={18} />, label: "Help & Support", href: "/dashboard/help" },
+      { icon: <File size={18} />, label: "Dummy Page", href: "/dashboard/dummy" },
     ]
   }
 ];
