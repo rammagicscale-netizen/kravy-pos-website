@@ -1,0 +1,55 @@
+import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import prisma from "@/lib/prisma";
+import { getEffectiveClerkId } from "@/lib/auth-utils";
+
+export async function POST(req: Request) {
+  try {
+    const { userId } = await auth(); // ✅ FIX
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const body = await req.json();
+    const { action, meta } = body;
+
+    if (!action) {
+      return NextResponse.json(
+        { error: "Action is required" },
+        { status: 400 }
+      );
+    }
+
+    const dbUser = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      select: { id: true },
+    });
+
+    if (!dbUser) {
+      return NextResponse.json(
+        { error: "DB user not found" },
+        { status: 404 }
+      );
+    }
+
+    const log = await prisma.activityLog.create({
+      data: {
+        userId: dbUser.id,
+        action,
+        meta,
+      },
+    });
+
+    return NextResponse.json({ success: true, log });
+  } catch (error) {
+    console.error("ACTIVITY LOG ERROR:", error);
+    return NextResponse.json(
+      { error: "Failed to log activity" },
+      { status: 500 }
+    );
+  }
+}

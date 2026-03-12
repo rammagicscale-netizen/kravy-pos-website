@@ -1,0 +1,48 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model BillManager {
+  id           String   @id @default(uuid())
+  clerkUserId  String
+  billNumber   String   @unique
+  customerName String?
+  total        Float    @default(0)
+  items        Json     @default("[]")
+  paymentMode  String?
+  createdAt    DateTime @default(now())
+  isDeleted    Boolean  @default(false)
+  deletedAt    DateTime?
+  
+  @@map("bill_manager")
+}
+
+model Combo {
+  id        String @id @default(uuid())
+  clerkUserId String
+  name      String
+  price     Float
+  isActive  Boolean @default(true)
+  createdAt DateTime @default(now())
+  
+  @@unique([clerkUserId, name])
+}
+
+model Offer {
+  id          String @id @default(uuid())
+  clerkUserId String
+  code        String @unique
+  discount    Float
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  
+  @@unique([clerkUserId, code])
+}
